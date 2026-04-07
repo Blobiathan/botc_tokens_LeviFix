@@ -23,36 +23,46 @@ class WikiSoup:
         self._script_filter = script_filter
     
     def load_from_web(self):
-        import requests
+        import subprocess
         import json
-        from py_mini_racer import MiniRacer
+        import tempfile
+        import requests
     
         url = "https://script.bloodontheclocktower.com/workspace.3c82003c.js"
         js = requests.get(url).text
     
-        ctx = MiniRacer()
+        # Create a temporary Node script
+        node_script = f"""
+        const vm = require('vm');
     
-        # Run JS in a real environment
-        ctx.eval(js)
+        let sandbox = {{
+            console,
+            window: {{}},
+            self: {{}},
+            global: {{}}
+        }};
     
-        # Try to extract known global variables safely
-        # (BOTC script usually attaches data somewhere globally)
-        result = ctx.eval("""
-            (function() {
-                let out = {};
+        vm.createContext(sandbox);
     
-                // try common possible exports
-                if (typeof roles !== 'undefined') out.roles = roles;
-                if (typeof role_data !== 'undefined') out.roles = role_data;
-                if (typeof window !== 'undefined' && window.roles) out.roles = window.roles;
+        try {{
+            vm.runInContext(`{js.replace('`', '\\`')}`, sandbox);
     
-                if (typeof nightSheet !== 'undefined') out.night = nightSheet;
-                if (typeof night !== 'undefined') out.night = night;
+            let out = {{
+                roles: typeof sandbox.roles !== 'undefined' ? sandbox.roles : null,
+                night: typeof sandbox.nightSheet !== 'undefined' ? sandbox.nightSheet : null
+            }};
     
-                return JSON.stringify(out);
-            })()
-        """)
+            console.log(JSON.stringify(out));
+        }} catch (e) {{
+            console.log(JSON.stringify({{error: e.toString()}}));
+        }}
+        """
     
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".js") as f:
+            f.write(node_script.encode("utf-8"))
+            path = f.name
+    
+        result = subprocess.check_output(["node", path]).decode("utf-8")
         data = json.loads(result)
     
         if data.get("roles"):
@@ -60,6 +70,9 @@ class WikiSoup:
     
         if data.get("night"):
             self.night_data = data["night"]
+    
+        if data.get("error"):
+            raise RuntimeError(data["error"])
     
     def _get_wiki_soup(self, role_name):
         """Take a role name and return a BeautifulSoup object for the role's wiki page."""
