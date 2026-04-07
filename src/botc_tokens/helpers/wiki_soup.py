@@ -24,46 +24,37 @@ class WikiSoup:
     
     def load_from_web(self):
         import requests
+        import subprocess
+        import tempfile
         import re
-        import json
-        import ast
     
         url = "https://script.bloodontheclocktower.com/workspace.3c82003c.js"
         js = requests.get(url).text
     
-        # --- STEP 1: extract likely data block ---
-        match = re.search(r'\[\{.*?\}\]', js, re.DOTALL)
-        if not match:
-            raise RuntimeError("Role data not found")
+        # Wrap the script to capture exports safely
+        wrapper = f"""
+    const module = {{}};
+    const exports = module.exports = {{}};
     
-        raw = match.group(0)
+    try {{
+    {js}
+    }} catch (e) {{
+    }}
     
-        # --- STEP 2: convert JS object syntax → JSON-safe ---
-        # quote unquoted keys: { name: → { "name":
-        raw = re.sub(r'([{,]\s*)([a-zA-Z0-9_]+)\s*:', r'\1"\2":', raw)
+    console.log(JSON.stringify(module.exports || exports));
+    """
     
-        # convert single quotes → double quotes
-        raw = raw.replace("'", '"')
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".js") as f:
+            f.write(wrapper.encode("utf-8"))
+            path = f.name
     
-        # remove trailing commas (JS allows, JSON doesn't)
-        raw = re.sub(r',\s*([}\]])', r'\1', raw)
+        try:
+            out = subprocess.check_output(["node", path], text=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Node execution failed: {e.output}")
     
-        # --- STEP 3: parse safely ---
-        self.role_data = json.loads(raw)
-    
-        # --- OPTIONAL NIGHT DATA ---
-        night_match = re.search(r'\[\{.*?night.*?\}\]', js, re.DOTALL | re.IGNORECASE)
-        if night_match:
-            night_raw = night_match.group(0)
-    
-            night_raw = re.sub(r'([{,]\s*)([a-zA-Z0-9_]+)\s*:', r'\1"\2":', night_raw)
-            night_raw = night_raw.replace("'", '"')
-            night_raw = re.sub(r',\s*([}\]])', r'\1', night_raw)
-    
-            try:
-                self.night_data = json.loads(night_raw)
-            except:
-                pass
+        import json
+        self.role_data = json.loads(out)
     
     def _get_wiki_soup(self, role_name):
         """Take a role name and return a BeautifulSoup object for the role's wiki page."""
