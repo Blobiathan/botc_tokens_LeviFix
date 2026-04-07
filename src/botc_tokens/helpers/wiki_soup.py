@@ -28,7 +28,10 @@ class WikiSoup:
         roles_from_web = urlopen("https://wiki.bloodontheclocktower.com/roles.json").read().decode('utf-8')
         self.role_data = json.loads(roles_from_web)
         # Filter the roles
-        self.role_data = [role for role in self.role_data if self._script_filter in role['version']]
+        self.role_data = [
+            role for role in self.role_data
+            if 'version' in role and self._script_filter in role['version']
+        ]
         night_from_web = urlopen("https://script.bloodontheclocktower.com/data/nightsheet.json").read().decode('utf-8')
         self.night_data = json.loads(night_from_web)
     
