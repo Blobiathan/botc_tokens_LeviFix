@@ -44,6 +44,7 @@ def _parse_args():
 
 
 def _should_skip(role):
+    return False
     """Determine if a role should be skipped."""
     # Bloodstar uses bare strings for built-in roles. If we see one, we need to pull data from official wiki and
     # see if we can find a match.
