@@ -23,15 +23,24 @@ class WikiSoup:
         self._script_filter = script_filter
     
     def load_from_web(self):
-        import requests, re, json
+        import json
+        import re
+        from urllib.request import urlopen
     
-        js = requests.get("https://script.bloodontheclocktower.com/workspace.3c82003c.js").text
+        js = urlopen("https://script.bloodontheclocktower.com/workspace.3c82003c.js").read().decode("utf-8")
     
-        roles = re.search(r'\[\s*\{.*?"id".*?\}\s*\]', js, re.DOTALL)
-        nights = re.search(r'night.*?(\[.*?\])', js, re.DOTALL)
+        # extract the roles array more safely
+        match = re.search(r'\[\s*\{.*?\}\s*\]', js, re.DOTALL)
     
-        self.role_data = json.loads(roles.group(0))
-        self.night_data = json.loads(nights.group(1))
+        if not match:
+            raise RuntimeError("Could not extract roles")
+    
+        raw = match.group(0)
+    
+        # FIX invalid JS escape sequences
+        raw = raw.encode("utf-8").decode("unicode_escape")
+    
+        self.role_data = json.loads(raw)
     
     def _get_wiki_soup(self, role_name):
         """Take a role name and return a BeautifulSoup object for the role's wiki page."""
