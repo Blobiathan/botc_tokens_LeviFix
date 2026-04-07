@@ -21,16 +21,18 @@ class WikiSoup:
         self.role_data = {}
         self.night_data = {"firstNight": [], "otherNight": []}
         self._script_filter = script_filter
-
+    
     def load_from_web(self):
-        """Load the role data from the wiki."""
-        roles_from_web = urlopen("https://script.bloodontheclocktower.com/data/roles.json").read().decode('utf-8')
-        self.role_data = json.loads(roles_from_web)
-        # Filter the roles
-        self.role_data = [role for role in self.role_data if self._script_filter in role['version']]
-        night_from_web = urlopen("https://script.bloodontheclocktower.com/data/nightsheet.json").read().decode('utf-8')
-        self.night_data = json.loads(night_from_web)
-
+        import requests, re, json
+    
+        js = requests.get("https://script.bloodontheclocktower.com/workspace.3c82003c.js").text
+    
+        roles = re.search(r'\[\s*\{.*?"id".*?\}\s*\]', js, re.DOTALL)
+        nights = re.search(r'night.*?(\[.*?\])', js, re.DOTALL)
+    
+        self.role_data = json.loads(roles.group(0))
+        self.night_data = json.loads(nights.group(1))
+    
     def _get_wiki_soup(self, role_name):
         """Take a role name and return a BeautifulSoup object for the role's wiki page."""
         # Check if we have already seen this role
