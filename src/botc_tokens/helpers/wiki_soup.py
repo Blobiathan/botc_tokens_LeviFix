@@ -30,54 +30,21 @@ class WikiSoup:
         url = "https://script.bloodontheclocktower.com/workspace.3c82003c.js"
         js = urlopen(url).read().decode("utf-8")
     
-        # --- find role data block ---
-        start = js.find('[{')
-        if start == -1:
-            raise RuntimeError("Could not find role data start")
+        # --- STEP 1: find the exact JS assignment ---
+        match = re.search(r'(\[\{.*?\}\])', js, re.DOTALL)
+        if not match:
+            raise RuntimeError("Could not locate role JSON block")
     
-        depth = 0
-        end = None
+        raw = match.group(1)
     
-        for i in range(start, len(js)):
-            if js[i] == '[':
-                depth += 1
-            elif js[i] == ']':
-                depth -= 1
-                if depth == 0:
-                    end = i + 1
-                    break
-    
-        if end is None:
-            raise RuntimeError("Could not find role data end")
-    
-        raw = js[start:end]
-    
-        # --- FIX INVALID JS ESCAPES ---
-        # turns illegal \x sequences into \\x so JSON parser won't crash
+        # --- STEP 2: fix JS invalid escapes ---
         raw = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', raw)
     
-        # remove control chars that sometimes break parsing
+        # --- STEP 3: remove broken control chars ---
         raw = raw.replace("\x00", "").replace("\r", "")
     
+        # --- STEP 4: parse JSON ---
         self.role_data = json.loads(raw)
-    
-        # --- OPTIONAL: nightsheet (keep safe parsing too) ---
-        night_start = js.find('[', js.find('night'))
-        if night_start != -1:
-            depth = 0
-            night_end = None
-    
-            for i in range(night_start, len(js)):
-                if js[i] == '[':
-                    depth += 1
-                elif js[i] == ']':
-                    depth -= 1
-                    if depth == 0:
-                        night_end = i + 1
-                        break
-    
-            if night_end:
-                self.night_data = json.loads(js[night_start:night_end])
     
     def _get_wiki_soup(self, role_name):
         """Take a role name and return a BeautifulSoup object for the role's wiki page."""
