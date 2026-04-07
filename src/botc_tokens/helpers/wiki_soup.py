@@ -23,28 +23,38 @@ class WikiSoup:
         self._script_filter = script_filter
 
     def load_from_web(self):
-        import json
+        import requests
+        from py_mini_racer import MiniRacer
         import re
-        from urllib.request import urlopen
     
         url = "https://script.bloodontheclocktower.com/workspace.3c82003c.js"
-        js = urlopen(url).read().decode("utf-8")
+        js = requests.get(url).text
     
-        # --- STEP 1: find the exact JS assignment ---
-        match = re.search(r'(\[\{.*?\}\])', js, re.DOTALL)
-        if not match:
-            raise RuntimeError("Could not locate role JSON block")
+        ctx = MiniRacer()
     
-        raw = match.group(1)
+        # We wrap JS so we can safely capture the variables we need
+        wrapper = f"""
+        var window = {{}};
+        var global = window;
     
-        # --- STEP 2: fix JS invalid escapes ---
-        raw = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', raw)
+        {js}
     
-        # --- STEP 3: remove broken control chars ---
-        raw = raw.replace("\x00", "").replace("\r", "")
+        JSON.stringify({
+            roles: typeof roles !== "undefined" ? roles : null,
+            night: typeof nightSheet !== "undefined" ? nightSheet : null
+        });
+        """
     
-        # --- STEP 4: parse JSON ---
-        self.role_data = json.loads(raw)
+        result = ctx.eval(wrapper)
+    
+        import json
+        data = json.loads(result)
+    
+        if data.get("roles"):
+            self.role_data = data["roles"]
+    
+        if data.get("night"):
+            self.night_data = data["night"]
     
     def _get_wiki_soup(self, role_name):
         """Take a role name and return a BeautifulSoup object for the role's wiki page."""
