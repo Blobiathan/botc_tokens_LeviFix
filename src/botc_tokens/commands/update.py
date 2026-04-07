@@ -209,18 +209,10 @@ def process_role(role, file, wiki, step_progress, step_task, role_output_path, u
             found_role.reminders.extend(role.get("remindersGlobal"))
         if not found_role.reminders:
             found_role.reminders = get_role_reminders(name, wiki)
-
-        # Determine night actions
-        if role.get("firstNightReminder"):
-            found_role.first_night = True
-        else:
-            found_role.first_night = True if role['id'] in wiki.night_data['firstNight'] else False
-
-        if role.get("otherNightReminder"):
-            found_role.other_nights = True
-        else:
-            found_role.other_nights = True if role['id'] in wiki.night_data['otherNight'] else False
-
+        
+        found_role.first_night = "firstNightReminder" in role
+        found_role.other_nights = "otherNightReminder" in role
+        
         # Check if the role affects setup
         if "[" in found_role.ability:
             found_role.affects_setup = True
