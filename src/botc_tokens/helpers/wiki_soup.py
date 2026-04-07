@@ -33,7 +33,8 @@ class WikiSoup:
             if 'version' in role and self._script_filter in role['version']
         ]
         night_from_web = urlopen("https://script.bloodontheclocktower.com/data/nightsheet.json").read().decode('utf-8')
-        self.night_data = json.loads(night_from_web)
+        #self.night_data = json.loads(night_from_web)
+        self.night_data = []
     
     def _get_wiki_soup(self, role_name):
         """Take a role name and return a BeautifulSoup object for the role's wiki page."""
