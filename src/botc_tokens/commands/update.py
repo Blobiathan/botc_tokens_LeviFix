@@ -142,6 +142,8 @@ def run():
 
 
 def prep_wiki(script_filter, custom_list=None):
+    print("ROLE COUNT:", len(wiki.role_data))
+    print("FIRST ROLE:", wiki.role_data[:1])
     """Prepare the wiki object, loading the data from the web or a custom list.
 
     Args:
