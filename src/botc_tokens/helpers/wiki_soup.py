@@ -22,39 +22,15 @@ class WikiSoup:
         self.night_data = {"firstNight": [], "otherNight": []}
         self._script_filter = script_filter
     
+
     def load_from_web(self):
-        import requests
-        import subprocess
-        import tempfile
-        import re
-    
-        url = "https://script.bloodontheclocktower.com/workspace.3c82003c.js"
-        js = requests.get(url).text
-    
-        # Wrap the script to capture exports safely
-        wrapper = f"""
-    const module = {{}};
-    const exports = module.exports = {{}};
-    
-    try {{
-    {js}
-    }} catch (e) {{
-    }}
-    
-    console.log(JSON.stringify(module.exports || exports));
-    """
-    
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".js") as f:
-            f.write(wrapper.encode("utf-8"))
-            path = f.name
-    
-        try:
-            out = subprocess.check_output(["node", path], text=True)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Node execution failed: {e.output}")
-    
-        import json
-        self.role_data = json.loads(out)
+        """Load the role data from the wiki."""
+        roles_from_web = urlopen("https://script.bloodontheclocktower.com/data/roles.json").read().decode('utf-8')
+        self.role_data = json.loads(roles_from_web)
+        # Filter the roles
+        self.role_data = [role for role in self.role_data if self._script_filter in role['version']]
+        night_from_web = urlopen("https://script.bloodontheclocktower.com/data/nightsheet.json").read().decode('utf-8')
+        self.night_data = json.loads(night_from_web)
     
     def _get_wiki_soup(self, role_name):
         """Take a role name and return a BeautifulSoup object for the role's wiki page."""
