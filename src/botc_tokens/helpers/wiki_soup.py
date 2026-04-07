@@ -21,19 +21,19 @@ class WikiSoup:
         self.role_data = {}
         self.night_data = {"firstNight": [], "otherNight": []}
         self._script_filter = script_filter
-    
+
     def load_from_web(self):
         import json
+        import re
         from urllib.request import urlopen
     
-        js = urlopen(
-            "https://script.bloodontheclocktower.com/workspace.3c82003c.js"
-        ).read().decode("utf-8")
+        url = "https://script.bloodontheclocktower.com/workspace.3c82003c.js"
+        js = urlopen(url).read().decode("utf-8")
     
-        # Find first '[' that starts roles array
+        # --- find role data block ---
         start = js.find('[{')
         if start == -1:
-            raise RuntimeError("Could not find roles array start")
+            raise RuntimeError("Could not find role data start")
     
         depth = 0
         end = None
@@ -48,22 +48,36 @@ class WikiSoup:
                     break
     
         if end is None:
-            raise RuntimeError("Could not find roles array end")
+            raise RuntimeError("Could not find role data end")
     
         raw = js[start:end]
     
-        # IMPORTANT: JS-safe → JSON-safe cleanup
-        raw = raw.replace("\n", "")
-        raw = raw.replace("\t", "")
+        # --- FIX INVALID JS ESCAPES ---
+        # turns illegal \x sequences into \\x so JSON parser won't crash
+        raw = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', raw)
+    
+        # remove control chars that sometimes break parsing
+        raw = raw.replace("\x00", "").replace("\r", "")
     
         self.role_data = json.loads(raw)
     
-        # nightsheet (still safe to keep original logic or similar extraction)
+        # --- OPTIONAL: nightsheet (keep safe parsing too) ---
         night_start = js.find('[', js.find('night'))
-        night_end = js.find(']', night_start) + 1
-    
         if night_start != -1:
-            self.night_data = json.loads(js[night_start:night_end])
+            depth = 0
+            night_end = None
+    
+            for i in range(night_start, len(js)):
+                if js[i] == '[':
+                    depth += 1
+                elif js[i] == ']':
+                    depth -= 1
+                    if depth == 0:
+                        night_end = i + 1
+                        break
+    
+            if night_end:
+                self.night_data = json.loads(js[night_start:night_end])
     
     def _get_wiki_soup(self, role_name):
         """Take a role name and return a BeautifulSoup object for the role's wiki page."""
