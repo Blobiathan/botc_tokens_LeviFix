@@ -21,33 +21,38 @@ class WikiSoup:
         self.role_data = {}
         self.night_data = {"firstNight": [], "otherNight": []}
         self._script_filter = script_filter
-
+    
     def load_from_web(self):
         import requests
+        import json
         from py_mini_racer import MiniRacer
-        import re
     
         url = "https://script.bloodontheclocktower.com/workspace.3c82003c.js"
         js = requests.get(url).text
     
         ctx = MiniRacer()
     
-        # We wrap JS so we can safely capture the variables we need
-        wrapper = f"""
-        var window = {{}};
-        var global = window;
+        # Run JS in a real environment
+        ctx.eval(js)
     
-        {js}
+        # Try to extract known global variables safely
+        # (BOTC script usually attaches data somewhere globally)
+        result = ctx.eval("""
+            (function() {
+                let out = {};
     
-        JSON.stringify({
-            roles: typeof roles !== "undefined" ? roles : null,
-            night: typeof nightSheet !== "undefined" ? nightSheet : null
-        });
-        """
+                // try common possible exports
+                if (typeof roles !== 'undefined') out.roles = roles;
+                if (typeof role_data !== 'undefined') out.roles = role_data;
+                if (typeof window !== 'undefined' && window.roles) out.roles = window.roles;
     
-        result = ctx.eval(wrapper)
+                if (typeof nightSheet !== 'undefined') out.night = nightSheet;
+                if (typeof night !== 'undefined') out.night = night;
     
-        import json
+                return JSON.stringify(out);
+            })()
+        """)
+    
         data = json.loads(result)
     
         if data.get("roles"):
