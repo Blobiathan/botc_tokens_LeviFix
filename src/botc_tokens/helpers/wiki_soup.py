@@ -32,7 +32,7 @@ class WikiSoup:
             role for role in self.role_data
             if 'version' in role and self._script_filter in role['version']
         ]
-        night_from_web = urlopen("https://script.bloodontheclocktower.com/data/nightsheet.json").read().decode('utf-8')
+        #night_from_web = urlopen("https://script.bloodontheclocktower.com/data/nightsheet.json").read().decode('utf-8')
         #self.night_data = json.loads(night_from_web)
         self.night_data = []
     
