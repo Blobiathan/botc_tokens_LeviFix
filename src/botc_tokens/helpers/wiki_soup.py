@@ -25,7 +25,7 @@ class WikiSoup:
 
     def load_from_web(self):
         """Load the role data from the wiki."""
-        roles_from_web = urlopen("https://script.bloodontheclocktower.com/data/roles.json").read().decode('utf-8')
+        roles_from_web = urlopen("https://wiki.bloodontheclocktower.com/roles.json").read().decode('utf-8')
         self.role_data = json.loads(roles_from_web)
         # Filter the roles
         self.role_data = [role for role in self.role_data if self._script_filter in role['version']]
