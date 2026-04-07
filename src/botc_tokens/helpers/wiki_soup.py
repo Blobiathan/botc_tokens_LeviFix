@@ -26,36 +26,41 @@ class WikiSoup:
         import requests
         import re
         import json
+        import ast
     
         url = "https://script.bloodontheclocktower.com/workspace.3c82003c.js"
         js = requests.get(url).text
     
-        # --- STEP 1: locate largest JSON-like array block ---
-        candidates = re.findall(r'\[\{.*?\}\]', js, re.DOTALL)
+        # --- STEP 1: extract likely data block ---
+        match = re.search(r'\[\{.*?\}\]', js, re.DOTALL)
+        if not match:
+            raise RuntimeError("Role data not found")
     
-        if not candidates:
-            raise RuntimeError("No role data found")
+        raw = match.group(0)
     
-        # pick the largest match (most likely correct dataset)
-        raw = max(candidates, key=len)
+        # --- STEP 2: convert JS object syntax → JSON-safe ---
+        # quote unquoted keys: { name: → { "name":
+        raw = re.sub(r'([{,]\s*)([a-zA-Z0-9_]+)\s*:', r'\1"\2":', raw)
     
-        # --- STEP 2: fix broken JS escapes ---
-        raw = raw.encode("utf-8", "ignore").decode("utf-8")
-        raw = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', raw)
+        # convert single quotes → double quotes
+        raw = raw.replace("'", '"')
     
-        # --- STEP 3: remove illegal control chars ---
-        raw = re.sub(r'[\x00-\x1f]+', '', raw)
+        # remove trailing commas (JS allows, JSON doesn't)
+        raw = re.sub(r',\s*([}\]])', r'\1', raw)
     
-        # --- STEP 4: parse JSON safely ---
+        # --- STEP 3: parse safely ---
         self.role_data = json.loads(raw)
     
-        # OPTIONAL: nightsheet extraction
-        night_candidates = re.findall(r'\[\{.*?night.*?\}\]', js, re.DOTALL | re.IGNORECASE)
-        if night_candidates:
+        # --- OPTIONAL NIGHT DATA ---
+        night_match = re.search(r'\[\{.*?night.*?\}\]', js, re.DOTALL | re.IGNORECASE)
+        if night_match:
+            night_raw = night_match.group(0)
+    
+            night_raw = re.sub(r'([{,]\s*)([a-zA-Z0-9_]+)\s*:', r'\1"\2":', night_raw)
+            night_raw = night_raw.replace("'", '"')
+            night_raw = re.sub(r',\s*([}\]])', r'\1', night_raw)
+    
             try:
-                night_raw = max(night_candidates, key=len)
-                night_raw = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', night_raw)
-                night_raw = re.sub(r'[\x00-\x1f]+', '', night_raw)
                 self.night_data = json.loads(night_raw)
             except:
                 pass
